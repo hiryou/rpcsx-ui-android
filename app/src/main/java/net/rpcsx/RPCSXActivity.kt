@@ -94,6 +94,14 @@ class RPCSXActivity : Activity() {
         bootThread?.join()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (openInGameHomeMenu()) {
+            return
+        }
+        super.onBackPressed()
+    }
+
 
     private fun keyCodeToPadBit(keyCode: Int): Pair<Int, Int> {
         val event = inputBindings[keyCode] ?: Pair(0, 0)
@@ -207,6 +215,21 @@ class RPCSXActivity : Activity() {
             gamePadState.rightStickX,
             gamePadState.rightStickY
         )
+    }
+
+    private fun openInGameHomeMenu(): Boolean {
+        return when (RPCSX.getState()) {
+            EmulatorState.Running,
+            EmulatorState.Paused,
+            EmulatorState.Ready,
+            EmulatorState.Loading,
+            EmulatorState.Starting -> {
+                RPCSX.instance.openHomeMenu()
+                true
+            }
+
+            else -> false
+        }
     }
 
     private fun enableFullScreenImmersive() {

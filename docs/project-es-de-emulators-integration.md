@@ -5,7 +5,10 @@
 Current focus:
 - PS3 emulator `RPCSX`
 
-## Phase 1
+---
+
+| **PHASE 1** |
+| --- |
 
 Fork repo `RPCSX`.
 
@@ -13,7 +16,10 @@ Start from the latest tag and create a local working branch.
 
 Stop here and wait for user checkpoint before proceeding to the next phase.
 
-## Phase 2
+---
+
+| **PHASE 2** |
+| --- |
 
 Manually package the `.apk` from this fork as-is.
 
@@ -50,7 +56,10 @@ Tail firmware installation process
 $ adb -s "$DROID_ADB_SERIAL" logcat -v brief | rg --line-buffered 'W/RPCS3|I/net\.rpcsx|Firmware Installation|Progress: file|Progress: module|Compiling PPU|Scudo|OOM|Fatal signal|ANR'
 ```
 
-## Phase 3
+---
+
+| **PHASE 3** |
+| --- |
 
 Add the minimal change starting from `MainActivity` to accept an external ISO game file path.
 
@@ -60,6 +69,27 @@ Implementation notes:
 - construct the launchable `path/to/gameID`
 - have `MainActivity` launch the game the same way `RPCSX` already does internally
 
+## Phase 3b
+
+Side improvements added around the main ISO-path launch feature:
+- added an ISO-only ES-DE helper under `net.rpcsx.esde` to parse `PARAM.SFO`, extract
+  `TITLE_ID`, and resolve the imported RPCSX game directory
+- added unit tests for the ISO resolver with a synthetic minimal PS3 ISO fixture
+- added an explicit external boot contract for ES-DE:
+    - action: `net.rpcsx.action.BOOT_ISO`
+    - extra: `path`
+- added a normalized external-launch failure path with the message:
+    - `Game must be preinstalled in RPCSX from an .iso file`
+- added a one-time default performance profile seeding step so fresh installs inherit the
+  currently known-good RK3588 / DuckTales baseline
+- changed the on-screen controller to start hidden by default and remember the user's OSC
+  visibility toggle preference
+- changed Android Back handling inside `RPCSXActivity` so pressing Back while in a game opens
+  the in-game RPCSX home menu instead of bouncing to the main RPCSX library UI first
+- added a top-level `Makefile` convenience wrapper:
+    - `make test`
+    - `make release`
+
 Debug, test & build release
 ```shell
 $ ./gradlew :app:testDebugUnitTest --tests net.rpcsx.esde.Ps3EsdeIsoResolverTest
@@ -68,11 +98,14 @@ $ ./gradlew :app:testDebugUnitTest --tests net.rpcsx.esde.Ps3EsdeIsoResolverTest
 $ ./gradlew :app:compileDebugKotlin
 
 # build release 
-$ ./gradlew :app:compileDebugKotlin
+$ make release
 # target file will be at: rpcsx-ui-android/app/build/outputs/apk/release/rpcsx-release.apk
 ```
 
-## Phase 4
+---
+
+| **PHASE 4** |
+| --- |
 
 Manual testing.
 
@@ -81,9 +114,14 @@ Wait on user correspondence as we go together.
 Stay in this phase until success criteria is met:
 - a PS3 game launches correctly from `ES-DE`
 
-## Phase 5
+---
+
+| **PHASE 5** |
+| --- |
 
 Visit the bug where a game does not exit cleanly and fix it as needed.
+
+---
 
 ## Note
 
