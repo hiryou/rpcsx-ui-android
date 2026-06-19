@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 RPCSX.initialized = true
+                RpcsxDefaultProfile.applyIfNeeded()
 
                 thread {
                     RPCSX.instance.startMainThreadProcessor()

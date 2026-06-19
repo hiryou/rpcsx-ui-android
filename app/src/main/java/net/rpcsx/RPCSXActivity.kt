@@ -17,6 +17,7 @@ import androidx.core.view.updateLayoutParams
 import net.rpcsx.databinding.ActivityRpcs3Binding
 import net.rpcsx.dialogs.AlertDialogQueue
 import net.rpcsx.overlay.State
+import net.rpcsx.utils.GeneralSettings
 import net.rpcsx.utils.InputBindingPrefs
 import kotlin.concurrent.thread
 import kotlin.math.abs
@@ -38,8 +39,14 @@ class RPCSXActivity : Activity() {
         unregisterUsbEventListener = listenUsbEvents(this)
         enableFullScreenImmersive()
 
+        binding.padOverlay.isInvisible = !(GeneralSettings["show_osc"] as Boolean? ?: false)
+        binding.oscToggle.setImageResource(
+            if (binding.padOverlay.isInvisible) R.drawable.ic_osc_off else R.drawable.ic_show_osc
+        )
+
         binding.oscToggle.setOnClickListener {
             binding.padOverlay.isInvisible = !binding.padOverlay.isInvisible
+            GeneralSettings["show_osc"] = !binding.padOverlay.isInvisible
             binding.oscToggle.setImageResource(if (binding.padOverlay.isInvisible) R.drawable.ic_osc_off else R.drawable.ic_show_osc)
         }
 
