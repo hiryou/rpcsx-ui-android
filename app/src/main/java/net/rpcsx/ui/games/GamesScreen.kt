@@ -368,7 +368,10 @@ fun GamesScreen() {
 
     val checkForUpdates = suspend {
         rpcsxUpdateVersion = RpcsxUpdater.checkForUpdate()
-        uiUpdateVersion = UiUpdater.checkForUpdate(context)
+        // Local fork builds intentionally suppress the self-update UI prompt.
+        // It can interrupt ES-DE-driven startup and is not useful for this setup.
+        // old code: uiUpdateVersion = UiUpdater.checkForUpdate(context)
+        uiUpdateVersion = null
 
         if (rpcsxUpdateVersion == null && rpcsxLibrary == null) {
             rpcsxInstallLibraryFailed = true
