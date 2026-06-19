@@ -10,6 +10,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -30,6 +33,8 @@ import kotlin.concurrent.thread
 class MainActivity : ComponentActivity() {
     private lateinit var unregisterUsbEventListener: () -> Unit
     private var storageAccessPromptShown = false
+    @Volatile
+    private var esdeImportInFlight = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -193,8 +198,12 @@ class MainActivity : ComponentActivity() {
 
         val importedGamePath = resolved.importedGamePath
         if (!File(importedGamePath).exists()) {
-            Log.w("RPCSX", "Imported game directory not found for ES-DE launch: $importedGamePath")
-            return failEsdeBoot()
+            Log.i(
+                "RPCSX",
+                "Imported game directory missing for ES-DE launch, attempting ISO import: ${resolved.sourceIsoPath} -> $importedGamePath"
+            )
+            queueEsdeIsoImportAndBoot(resolved)
+            return false
         }
 
         GameRepository.find(importedGamePath)?.let(GameRepository::onBoot)
@@ -207,6 +216,88 @@ class MainActivity : ComponentActivity() {
             putExtra(EsdeBootContract.PathExtra, importedGamePath)
         })
         return true
+    }
+
+    private fun queueEsdeIsoImportAndBoot(resolved: net.rpcsx.esde.Ps3EsdeIsoTarget) {
+        if (esdeImportInFlight) {
+            Log.i("RPCSX", "Ignoring duplicate ES-DE import request while another import is active")
+            return
+        }
+
+        esdeImportInFlight = true
+        val importedGamePath = resolved.importedGamePath
+        val sourceIsoPath = resolved.sourceIsoPath
+        val progressId = ProgressRepository.create(
+            this,
+            "ISO Import"
+        )
+
+        thread {
+            try {
+                val imported = runCatching {
+                    ParcelFileDescriptor.open(
+                        File(sourceIsoPath),
+                        ParcelFileDescriptor.MODE_READ_ONLY
+                    ).use { input ->
+                        val fd = input.fd
+                        if (!RPCSX.instance.isInstallableFile(fd)) {
+                            Log.w("RPCSX", "ES-DE ISO is not installable by RPCSX: $sourceIsoPath")
+                            return@runCatching false
+                        }
+
+                        RPCSX.instance.install(fd, progressId)
+                    }
+                }.getOrElse { error ->
+                    Log.e("RPCSX", "Failed to import ES-DE ISO: $sourceIsoPath", error)
+                    false
+                }
+
+                if (!imported) {
+                    ProgressRepository.onProgressEvent(
+                        progressId,
+                        -1,
+                        0,
+                        EsdeBootContract.ErrorMessage
+                    )
+                    runOnUiThread {
+                        failEsdeBoot()
+                    }
+                    return@thread
+                }
+
+                Log.i("RPCSX", "ISO import completed for ES-DE launch: $sourceIsoPath")
+                RPCSX.instance.collectGameInfo(importedGamePath, -1L)
+                Log.i("RPCSX", "Collected game info after ES-DE ISO import: $importedGamePath")
+
+                if (!File(importedGamePath).exists()) {
+                    Log.w(
+                        "RPCSX",
+                        "ISO import completed but imported game directory is still missing: $importedGamePath"
+                    )
+                    runOnUiThread {
+                        failEsdeBoot()
+                    }
+                    return@thread
+                }
+
+                Handler(Looper.getMainLooper()).post {
+                    GameRepository.find(importedGamePath)?.let(GameRepository::onBoot)
+                    Log.i(
+                        "RPCSX",
+                        "Launching imported game after ES-DE ISO import: $sourceIsoPath -> $importedGamePath"
+                    )
+                    applicationContext.startActivity(Intent(applicationContext, RPCSXActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra(EsdeBootContract.PathExtra, importedGamePath)
+                    })
+                    if (!isFinishing && !isDestroyed) {
+                        finish()
+                    }
+                }
+            } finally {
+                esdeImportInFlight = false
+            }
+        }
     }
 
     private fun extractEsdeIsoPath(intent: Intent?): String? {
