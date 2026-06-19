@@ -78,6 +78,11 @@ import net.rpcsx.utils.UiUpdater
 import java.io.File
 import kotlin.concurrent.thread
 
+private fun Game.isVisibleLibraryEntry(): Boolean {
+    return info.name.value != "VSH" &&
+        !info.path.contains("/config/dev_flash/vsh/", ignoreCase = false)
+}
+
 private fun withAlpha(color: Color, alpha: Float): Color {
     return Color(
         red = color.red, green = color.green, blue = color.blue, alpha = alpha
@@ -349,6 +354,7 @@ fun GameItem(game: Game) {
 fun GamesScreen() {
     val context = LocalContext.current
     val games = remember { GameRepository.list() }
+    val visibleGames = games.filter { it.isVisibleLibraryEntry() }
     val isRefreshing by remember { GameRepository.isRefreshing }
     val state = rememberPullToRefreshState()
     var uiUpdateVersion by remember { mutableStateOf<String?>(null) }
@@ -580,8 +586,8 @@ fun GamesScreen() {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
-            items(count = games.size, key = { index -> games[index].info.path }) { index ->
-                GameItem(games[index])
+            items(count = visibleGames.size, key = { index -> visibleGames[index].info.path }) { index ->
+                GameItem(visibleGames[index])
             }
         }
     }
