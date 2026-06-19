@@ -29,6 +29,7 @@ class RPCSXActivity : Activity() {
     private var usesAxisL2 = false
     private var usesAxisR2 = false
     private var bootThread: Thread? = null
+    private var stateWatcherThread: Thread? = null
     private val inputBindings by lazy { InputBindingPrefs.loadBindings() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +53,7 @@ class RPCSXActivity : Activity() {
 
         val gamePath = intent.getStringExtra("path")!!
         RPCSX.lastPlayedGame = gamePath
+        startStateWatcher(gamePath)
 
         bootThread = thread {
             if (RPCSX.getState() != EmulatorState.Stopped) {
@@ -88,10 +90,20 @@ class RPCSXActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        RPCSX.state.value = EmulatorState.Paused
-        unregisterUsbEventListener()
+        stateWatcherThread?.interrupt()
         bootThread?.interrupt()
         bootThread?.join()
+        stateWatcherThread?.join()
+        unregisterUsbEventListener()
+
+        if (RPCSX.getState() == EmulatorState.Stopped) {
+            if (RPCSX.activeGame.value == RPCSX.lastPlayedGame) {
+                RPCSX.activeGame.value = null
+            }
+            RPCSX.state.value = EmulatorState.Stopped
+        } else {
+            RPCSX.state.value = EmulatorState.Paused
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -215,6 +227,31 @@ class RPCSXActivity : Activity() {
             gamePadState.rightStickX,
             gamePadState.rightStickY
         )
+    }
+
+    private fun startStateWatcher(gamePath: String) {
+        stateWatcherThread = thread {
+            var seenActiveState = false
+
+            while (!Thread.currentThread().isInterrupted) {
+                val state = RPCSX.getState()
+                if (state != EmulatorState.Stopped) {
+                    seenActiveState = true
+                }
+
+                if (seenActiveState && state == EmulatorState.Stopped && RPCSX.activeGame.value == gamePath) {
+                    RPCSX.activeGame.value = null
+                    runOnUiThread {
+                        if (!isFinishing && !isDestroyed) {
+                            finish()
+                        }
+                    }
+                    return@thread
+                }
+
+                Thread.sleep(250)
+            }
+        }
     }
 
     private fun openInGameHomeMenu(): Boolean {
