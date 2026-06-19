@@ -121,6 +121,29 @@ Stay in this phase until success criteria is met:
 
 Visit the bug where a game does not exit cleanly and fix it as needed.
 
+Additional Phase 5 changes completed around ES-DE / day-to-day usability:
+- disabled the automatic RPCSX UI self-update popup on launch
+- rationale:
+  - local fork builds intentionally use `versionName=local`
+  - the stock update check kept surfacing a distracting `UI Update Available` dialog
+  - that popup was noisy during startup and could interfere with ES-DE-driven launch testing
+- implementation shape:
+  - keep the rest of the game/library flow intact
+  - suppress only the automatic UI update prompt path in `GamesScreen`
+
+- added first-run / ES-DE-launch prompting for Android `All files access`
+- rationale:
+  - ES-DE integration currently passes a raw `%ROM%` filesystem path for PS3 `.iso` content
+  - RPCSX needs broader external-storage access to reopen that ISO path during ES-DE launch
+  - without this, the app fails with `EACCES (Permission denied)` even if the game was already
+    imported inside RPCSX
+- implementation shape:
+  - declare `android.permission.MANAGE_EXTERNAL_STORAGE`
+  - on startup and on ES-DE boot attempts, detect whether `All files access` is missing
+  - if missing, show a clear dialog and deep-link to the app-specific Android settings screen
+  - use a more accurate ES-DE launch failure message:
+    - `Grant All files access to RPCSX, then retry the game`
+
 ## Phase 5b
 
 Deferred follow-up around Android `Back` behavior while the in-game RPCSX home menu is already

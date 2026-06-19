@@ -10,4 +10,6 @@ object EsdeBootContract {
     const val BootIsoAction = "net.rpcsx.action.BOOT_ISO"
     const val PathExtra = "path"
     const val ErrorMessage = "Game must be preinstalled in RPCSX from an .iso file"
+    const val StoragePermissionErrorMessage =
+        "Grant All files access to RPCSX, then retry the game"
 }

@@ -1,11 +1,16 @@
 package net.rpcsx
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,6 +29,7 @@ import kotlin.concurrent.thread
 
 class MainActivity : ComponentActivity() {
     private lateinit var unregisterUsbEventListener: () -> Unit
+    private var storageAccessPromptShown = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -131,6 +137,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        maybePromptForExternalStorageAccess()
+
         if (tryBootEsdeIsoIntent(intent)) {
             unregisterUsbEventListener = {}
             finish()
@@ -153,6 +161,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        maybePromptForExternalStorageAccess()
         if (tryBootEsdeIsoIntent(intent)) {
             finish()
         }
@@ -165,6 +174,12 @@ class MainActivity : ComponentActivity() {
 
     private fun tryBootEsdeIsoIntent(intent: Intent?): Boolean {
         val isoPath = extractEsdeIsoPath(intent) ?: return false
+
+        if (!hasExternalStorageManagerAccess()) {
+            Log.w("RPCSX", "Missing all files access for ES-DE ISO boot request: $isoPath")
+            promptForExternalStorageAccess(bootRequest = true)
+            return failEsdeBoot(EsdeBootContract.StoragePermissionErrorMessage)
+        }
 
         if (!RPCSX.initialized || RPCSX.activeLibrary.value == null) {
             Log.w("RPCSX", "Ignoring ES-DE boot request before RPCSX initialization: $isoPath")
@@ -201,13 +216,57 @@ class MainActivity : ComponentActivity() {
         return intent.getStringExtra(EsdeBootContract.PathExtra)?.takeIf { it.isNotBlank() }
     }
 
-    private fun failEsdeBoot(): Boolean {
-        val message = EsdeBootContract.ErrorMessage
+    private fun failEsdeBoot(message: String = EsdeBootContract.ErrorMessage): Boolean {
         setResult(
             Activity.RESULT_CANCELED,
             Intent().putExtra(Intent.EXTRA_TEXT, message)
         )
         AlertDialogQueue.showDialog("RPCSX ES-DE Launch Failed", message)
         return false
+    }
+
+    private fun maybePromptForExternalStorageAccess() {
+        if (!hasExternalStorageManagerAccess()) {
+            promptForExternalStorageAccess(bootRequest = false)
+        }
+    }
+
+    private fun hasExternalStorageManagerAccess(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+    }
+
+    private fun promptForExternalStorageAccess(bootRequest: Boolean) {
+        if (storageAccessPromptShown || hasExternalStorageManagerAccess()) {
+            return
+        }
+        storageAccessPromptShown = true
+
+        AlertDialog.Builder(this)
+            .setTitle("Allow Files Access")
+            .setMessage(
+                if (bootRequest) {
+                    "RPCSX needs All files access to open PS3 .iso files launched from ES-DE. Grant access in Android Settings, then retry the game."
+                } else {
+                    "RPCSX needs All files access to open PS3 .iso files from shared storage. Grant access in Android Settings."
+                }
+            )
+            .setCancelable(true)
+            .setNegativeButton("Later", null)
+            .setPositiveButton("Open Settings") { _, _ ->
+                openExternalStorageManagerSettings()
+            }
+            .show()
+    }
+
+    private fun openExternalStorageManagerSettings() {
+        val packageUri = Uri.parse("package:$packageName")
+        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, packageUri)
+        runCatching { startActivity(intent) }
+            .recoverCatching {
+                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }
+            .onFailure { error ->
+                Log.e("RPCSX", "Failed to open all files access settings", error)
+            }
     }
 }

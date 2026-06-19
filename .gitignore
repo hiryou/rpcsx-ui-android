@@ -16,3 +16,5 @@ local.properties
 .cache
 **/build*/
 .rx.version
+
+.kotlin/
