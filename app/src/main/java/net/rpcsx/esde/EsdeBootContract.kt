@@ -9,4 +9,5 @@ package net.rpcsx.esde
 object EsdeBootContract {
     const val BootIsoAction = "net.rpcsx.action.BOOT_ISO"
     const val PathExtra = "path"
+    const val ErrorMessage = "Game must be preinstalled in RPCSX from an .iso file"
 }

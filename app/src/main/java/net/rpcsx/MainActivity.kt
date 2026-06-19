@@ -1,5 +1,6 @@
 package net.rpcsx
 
+import android.app.Activity
 import android.content.Intent
 import android.app.Notification
 import android.app.NotificationChannel
@@ -166,26 +167,18 @@ class MainActivity : ComponentActivity() {
 
         if (!RPCSX.initialized || RPCSX.activeLibrary.value == null) {
             Log.w("RPCSX", "Ignoring ES-DE boot request before RPCSX initialization: $isoPath")
-            return false
+            return failEsdeBoot()
         }
 
         val resolved = runCatching { Ps3EsdeIsoResolver.resolve(isoPath) }.getOrElse { error ->
             Log.e("RPCSX", "Failed to resolve ES-DE ISO boot request: $isoPath", error)
-            AlertDialogQueue.showDialog(
-                "RPCSX ES-DE Launch Failed",
-                error.message ?: "Could not resolve the selected PS3 ISO."
-            )
-            return false
+            return failEsdeBoot()
         }
 
         val importedGamePath = resolved.importedGamePath
         if (!File(importedGamePath).exists()) {
             Log.w("RPCSX", "Imported game directory not found for ES-DE launch: $importedGamePath")
-            AlertDialogQueue.showDialog(
-                "RPCSX ES-DE Launch Failed",
-                "Game ${resolved.titleId} is not imported in RPCSX yet."
-            )
-            return false
+            return failEsdeBoot()
         }
 
         GameRepository.find(importedGamePath)?.let(GameRepository::onBoot)
@@ -205,5 +198,15 @@ class MainActivity : ComponentActivity() {
             return null
         }
         return intent.getStringExtra(EsdeBootContract.PathExtra)?.takeIf { it.isNotBlank() }
+    }
+
+    private fun failEsdeBoot(): Boolean {
+        val message = EsdeBootContract.ErrorMessage
+        setResult(
+            Activity.RESULT_CANCELED,
+            Intent().putExtra(Intent.EXTRA_TEXT, message)
+        )
+        AlertDialogQueue.showDialog("RPCSX ES-DE Launch Failed", message)
+        return false
     }
 }
