@@ -121,6 +121,44 @@ Stay in this phase until success criteria is met:
 
 Visit the bug where a game does not exit cleanly and fix it as needed.
 
+## Phase 5b
+
+Deferred follow-up around Android `Back` behavior while the in-game RPCSX home menu is already
+open.
+
+Findings and conclusions:
+- `Back` while actively in-game should open the RPCSX home menu
+- `Back` again while that home menu is already open should ideally close the menu and return to
+  the live game view
+- this is the desired UX because it matches the behavior of other emulators more closely
+
+Current state of the fork:
+- `RPCSXActivity.onBackPressed()` currently routes `Back` into `RPCSX.instance.openHomeMenu()`
+  whenever the emulator is in an active state
+- this means the Android/Kotlin layer can open the menu, but it does not know whether the native
+  menu is already open
+- the currently exposed Android/JNI surface does not provide:
+  - `isHomeMenuOpen()`
+  - `closeHomeMenu()`
+  - `toggleHomeMenu()`
+
+Implementation conclusion:
+- do not try to fake this purely from Android activity state
+- the cleaner future fix is to inspect the native RPCSX side and expose one minimal JNI method for
+  menu state or menu toggling
+
+Best candidate future API shapes:
+- `isHomeMenuOpen()`
+- `toggleHomeMenu()`
+- `closeHomeMenu()`
+
+If we revisit this later, the next step should be:
+- inspect the native RPCSX Android binding / C++ menu implementation
+- determine whether menu open/close state already exists internally
+- expose the smallest JNI surface needed so Android `Back` can:
+  1. open the menu if gameplay is active
+  2. close the menu if it is already open
+
 ---
 
 ## Note
