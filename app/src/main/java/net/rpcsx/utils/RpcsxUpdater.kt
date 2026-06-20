@@ -8,11 +8,16 @@ import kotlinx.coroutines.withContext
 import net.rpcsx.RPCSX
 import net.rpcsx.dialogs.AlertDialogQueue
 import net.rpcsx.ui.channels.DevRpcsxChannel
+import net.rpcsx.ui.channels.ReleaseRpcsxChannel
 import java.io.File
 import kotlin.system.exitProcess
 
 
 object RpcsxUpdater {
+    private fun getChannel(): String {
+        return GeneralSettings["rpcsx_channel"] as? String ?: ReleaseRpcsxChannel
+    }
+
     fun getCurrentVersion(): String? {
         if (RPCSX.activeLibrary.value == null) {
             return null
@@ -48,7 +53,8 @@ object RpcsxUpdater {
     }
 
     suspend fun checkForUpdate(): String? {
-        val url = DevRpcsxChannel // TODO: update once RPCSX has release with android support
+        // old code: val url = DevRpcsxChannel // TODO: update once RPCSX has release with android support
+        val url = getChannel()
 
         val arch = getArch()
         when (val fetchResult = GitHub.fetchLatestRelease(url)) {
@@ -77,7 +83,8 @@ object RpcsxUpdater {
     }
 
     suspend fun downloadUpdate(destinationDir: File, progressCallback: (Long, Long) -> Unit): File? {
-        val url = DevRpcsxChannel // TODO: GeneralSettings["rpcsx_channel"] as String
+        // old code: val url = DevRpcsxChannel // TODO: GeneralSettings["rpcsx_channel"] as String
+        val url = getChannel()
         val arch = getArch()
 
         when (val fetchResult = GitHub.fetchLatestRelease(url)) {
@@ -139,9 +146,10 @@ object RpcsxUpdater {
 
         val prevLibrary = GeneralSettings["rpcsx_library"] as? String
         val prevArch = GeneralSettings["rpcsx_installed_arch"] as? String
+        val resolvedArch = getFileArch(updateFile) ?: prevArch ?: getArch()
         GeneralSettings["rpcsx_library"] = updateFile.toString()
         GeneralSettings["rpcsx_update_status"] = null
-        GeneralSettings["rpcsx_installed_arch"] = getFileArch(updateFile)
+        GeneralSettings["rpcsx_installed_arch"] = resolvedArch
 
         Log.e("RPCSX-UI", "registered update file ${GeneralSettings["rpcsx_library"]}")
 

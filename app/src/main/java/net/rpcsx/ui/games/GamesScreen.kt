@@ -2,6 +2,7 @@ package net.rpcsx.ui.games
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material.icons.Icons
@@ -72,6 +74,8 @@ import net.rpcsx.R
 import net.rpcsx.RPCSX
 import net.rpcsx.RPCSXActivity
 import net.rpcsx.dialogs.AlertDialogQueue
+import net.rpcsx.ui.channels.DevRpcsxChannel
+import net.rpcsx.ui.channels.ReleaseRpcsxChannel
 import net.rpcsx.utils.FileUtil
 import net.rpcsx.utils.RpcsxUpdater
 import net.rpcsx.utils.UiUpdater
@@ -87,6 +91,45 @@ private fun withAlpha(color: Color, alpha: Float): Color {
     return Color(
         red = color.red, green = color.green, blue = color.blue, alpha = alpha
     )
+}
+
+@Composable
+private fun LibraryDiagnosticsCard() {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE) }
+    val selectedChannel = prefs.getString("rpcsx_channel", ReleaseRpcsxChannel) ?: ReleaseRpcsxChannel
+    val selectedChannelLabel = when (selectedChannel) {
+        ReleaseRpcsxChannel -> "Release"
+        DevRpcsxChannel -> "Development"
+        else -> selectedChannel
+    }
+    val libraryPath = RPCSX.activeLibrary.value
+    val libraryFile = libraryPath?.substringAfterLast('/')
+    val currentVersion = RpcsxUpdater.getCurrentVersion() ?: "Unknown"
+    val coreVersion = runCatching { RPCSX.instance.getVersion().trim() }.getOrDefault("Unknown")
+    val arch = RpcsxUpdater.getArch()
+    val deviceAbi = Build.SUPPORTED_64_BIT_ABIS.firstOrNull()
+        ?: Build.SUPPORTED_ABIS.firstOrNull()
+        ?: "Unknown"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("RPCSX Core", style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("Loaded: $currentVersion", style = MaterialTheme.typography.bodyMedium)
+            Text("Core version: $coreVersion", style = MaterialTheme.typography.bodySmall)
+            Text("Channel: $selectedChannelLabel", style = MaterialTheme.typography.bodySmall)
+            Text("Configured arch: $arch", style = MaterialTheme.typography.bodySmall)
+            Text("Device ABI: $deviceAbi", style = MaterialTheme.typography.bodySmall)
+            if (libraryFile != null) {
+                Text("Library file: $libraryFile", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -586,10 +629,13 @@ fun GamesScreen() {
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxSize()
         ) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LibraryDiagnosticsCard()
+            }
             items(count = visibleGames.size, key = { index -> visibleGames[index].info.path }) { index ->
                 GameItem(visibleGames[index])
             }
-        }
+                }
     }
 }
 
