@@ -11,7 +11,7 @@ import net.rpcsx.utils.GeneralSettings
  * future fresh installs inherit the same baseline without requiring manual GUI changes.
  */
 object RpcsxDefaultProfile {
-    private const val ProfileVersion = 1
+    private const val ProfileVersion = 2
     private const val ProfileVersionKey = "rpcsx_default_profile_version"
     private const val ShowOscKey = "show_osc"
 
@@ -23,6 +23,7 @@ object RpcsxDefaultProfile {
         "@@Core@@Preferred SPU Threads" to "1",
         "@@Core@@Max SPURS Threads" to "1",
         "@@Core@@Accurate RSX reservation access" to "false",
+        "@@Savestate@@Compatible Savestate Mode" to "true",
         "@@Video@@Renderer" to "\"Vulkan\"",
         "@@Video@@Resolution" to "\"1280x720\"",
         "@@Video@@MSAA" to "\"Disabled\"",
